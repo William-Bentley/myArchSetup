@@ -14,6 +14,7 @@ Creates a baseline Arch linux install intended for desktop use. Tries to adhere 
 3.  Boot the live environment.
 4.  Connect to the internet.
 5.  ```pacman -S git -y```
-6.  Get a copy of the script
+6.  ```git clone https://github.com/William-Bentley/myArchSetup```
+7.  ```cd myArchSetup```
 8.  ./install.sh
 
