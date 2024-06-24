@@ -16,5 +16,6 @@ Creates a baseline Arch linux install intended for desktop use. Tries to adhere 
 5.  ```pacman -S git -y```
 6.  ```git clone https://github.com/William-Bentley/myArchSetup```
 7.  ```cd myArchSetup```
-8.  ```./install.sh```
+8.  ```chmod +x install.sh```
+9.  ```./install.sh```
 
