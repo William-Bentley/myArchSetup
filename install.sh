@@ -51,19 +51,13 @@ kernel_selector () {
     esac
 }
 
-# Checking the microcode to install.
-CPU=$(grep vendor_id /proc/cpuinfo)
-if [[ $CPU == *"AuthenticAMD"* ]]; then
-    microcode=amd-ucode
-    echo "AMD CPU detected."
-else
-    echo "Intel CPU detected."
-    microcode=intel-ucode
-fi
+# Checking the microcode to# Enable IPv6 privacy extensions
+bash -c 'cat > /mnt/etc/NetworkManager/conf.d/ip6-privacy.conf' <<-'EOF'
+[connection]
+ipv6.ip6-privacy=2
+EOF
 
-# Selecting the target disk for the installation.
-PS3="Select the disk where Arch Linux is going to be installed: "
-select ENTRY in $(lsblk -dpnoNAME|grep -P "/dev/sd|nvme|vd");
+chmod 600 /mnt/etc/NetworkManager/conf.d/ip6-privacy.confnoNAME|grep -P "/dev/sd|nvme|vd");
 do
     DISK=$ENTRY
     echo "Installing Arch Linux on $DISK."
@@ -208,11 +202,12 @@ mount -o nodev,nosuid,noexec "$ESP" /mnt/boot/efi
 
 kernel_selector
 
-# Pacstrap (setting up a base sytem onto the new root).
+# Pacstrap (setting up a base sytem onto rthe new root).
 echo "Installing the base system (it may take a while)."
 pacstrap /mnt base ${kernel} ${microcode} linux-firmware
 pacstrap /mnt grub grub-btrfs dosfstools efibootmgr mlocate chrony snapper snap-pac inotify-tools
 pacstrap /mnt apparmor bash-completion htop btop iwd man-db man-pages mc nano nftables reflector sudo usbguard wget vim
+pacstrap /mnt gnome gnome-extra networkmanager
 
 # Generating /etc/fstab.
 echo "Generating a new fstab."
@@ -317,6 +312,13 @@ auth		required	pam_unix.so
 account		required	pam_unix.so
 session		required	pam_unix.so
 EOF
+# Enable IPv6 privacy extensions
+bash -c 'cat > /mnt/etc/NetworkManager/conf.d/ip6-privacy.conf' <<-'EOF'
+[connection]
+ipv6.ip6-privacy=2
+EOF
+
+chmod 600 /mnt/etc/NetworkManager/conf.d/ip6-privacy.conf
 
 # Configuring the system.
 arch-chroot /mnt /bin/bash -e <<EOF
@@ -395,6 +397,12 @@ systemctl enable auditd --root=/mnt &>/dev/null
 
 # Enabling auto-trimming service.
 systemctl enable fstrim.timer --root=/mnt &>/dev/null
+
+# Enabling NetworkManager.
+systemctl enable NetworkManager --root=/mnt &>/dev/null
+
+# Enabling GDM.
+systemctl enable gdm --root=/mnt &>/dev/null
 
 # Enabling AppArmor.
 echo "Enabling AppArmor."
