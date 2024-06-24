@@ -51,13 +51,19 @@ kernel_selector () {
     esac
 }
 
-# Checking the microcode to# Enable IPv6 privacy extensions
-bash -c 'cat > /mnt/etc/NetworkManager/conf.d/ip6-privacy.conf' <<-'EOF'
-[connection]
-ipv6.ip6-privacy=2
-EOF
+# Checking the microcode to install.
+CPU=$(grep vendor_id /proc/cpuinfo)
+if [[ $CPU == *"AuthenticAMD"* ]]; then
+    echo "AMD CPU detected."
+    microcode=amd-ucode
+else
+    echo "Intel CPU detected."
+    microcode=intel-ucode
+fi
 
-chmod 600 /mnt/etc/NetworkManager/conf.d/ip6-privacy.confnoNAME|grep -P "/dev/sd|nvme|vd");
+# Selecting the target for the installation.
+PS3="Select the disk where Arch Linux is going to be installed: "
+select ENTRY in $(lsblk -dpnoNAME|grep -P "/dev/sd|nvme|vd");
 do
     DISK=$ENTRY
     echo "Installing Arch Linux on $DISK."
@@ -202,7 +208,7 @@ mount -o nodev,nosuid,noexec "$ESP" /mnt/boot/efi
 
 kernel_selector
 
-# Pacstrap (setting up a base sytem onto rthe new root).
+# Pacstrap (setting up a base sytem onto the new root).
 echo "Installing the base system (it may take a while)."
 pacstrap /mnt base ${kernel} ${microcode} linux-firmware
 pacstrap /mnt grub grub-btrfs dosfstools efibootmgr mlocate chrony snapper snap-pac inotify-tools
