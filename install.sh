@@ -400,10 +400,6 @@ systemctl enable fstrim.timer --root=/mnt &>/dev/null
 echo "Enabling AppArmor."
 systemctl enable apparmor --root=/mnt &>/dev/null
 
-# Enabling Bluetooth Service (This is only to fix the visual glitch with gnome where it gets stuck in the menu at the top right).
-# IF YOU WANT TO USE BLUETOOTH, YOU MUST REMOVE IT FROM THE LIST OF BLACKLISTED KERNEL MODULES IN /mnt/etc/modprobe.d/30_security-misc.conf
-systemctl enable bluetooth --root=/mnt &>/dev/null
-
 # Enabling Reflector timer.
 echo "Enabling Reflector."
 systemctl enable reflector.timer --root=/mnt &>/dev/null
