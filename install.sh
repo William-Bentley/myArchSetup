@@ -232,15 +232,6 @@ cat > /mnt/etc/hosts <<EOF
 127.0.1.1   $hostname.localdomain   $hostname
 EOF
 
-# Setting username and password.
-read -r -p "Enter name for a user account: " username
-read -r -p "Enter password" password
-
-# If we have a username, ask for a full name too.
-if [ ! -z "$username" ]; then
-read -r -p "Please enter name the full name of the user account: " fullname
-fi
-
 # Setting up locales.
 read -r -p "Please insert the locale you use in this format (en_US): " locale
 echo "$locale.UTF-8 UTF-8"  > /mnt/etc/locale.gen
@@ -272,45 +263,6 @@ chmod 000 /mnt/cryptkey/.root.key &>/dev/null
 cryptsetup -v luksAddKey /dev/disk/by-partlabel/cryptroot /mnt/cryptkey/.root.key
 sed -i "s#quiet#cryptdevice=UUID=$UUID:cryptroot root=$BTRFS lsm=landlock,lockdown,yama,apparmor,bpf cryptkey=rootfs:/cryptkey/.root.key#g" /mnt/etc/default/grub
 sed -i 's#FILES=()#FILES=(/cryptkey/.root.key)#g' /mnt/etc/mkinitcpio.conf
-
-# Configure AppArmor Parser caching
-sed -i 's/#write-cache/write-cache/g' /mnt/etc/apparmor/parser.conf
-sed -i 's,#Include /etc/apparmor.d/,Include /etc/apparmor.d/,g' /mnt/etc/apparmor/parser.conf
-
-# Blacklisting kernel modules
-curl https://raw.githubusercontent.com/Kicksecure/security-misc/master/etc/modprobe.d/30_security-misc.conf -o /mnt/etc/modprobe.d/30_security-misc.conf
-chmod 600 /mnt/etc/modprobe.d/*
-
-# Security kernel settings.
-curl https://raw.githubusercontent.com/Kicksecure/security-misc/master/usr/lib/sysctl.d/990-security-misc.conf -o /mnt/etc/sysctl.d/990-security-misc.conf
-sed -i 's/kernel.yama.ptrace_scope=2/kernel.yama.ptrace_scope=3/g' /mnt/etc/sysctl.d/990-security-misc.conf
-curl https://raw.githubusercontent.com/Kicksecure/security-misc/master/etc/sysctl.d/30_silent-kernel-printk.conf -o /mnt/etc/sysctl.d/30_silent-kernel-printk.conf
-curl https://raw.githubusercontent.com/Kicksecure/security-misc/master/etc/sysctl.d/30_security-misc_kexec-disable.conf -o /mnt/etc/sysctl.d/30_security-misc_kexec-disable.conf
-chmod 600 /mnt/etc/sysctl.d/*
-
-# Remove nullok from system-auth
-sed -i 's/nullok//g' /mnt/etc/pam.d/system-auth
-
-# Disable su for non-wheel users
-bash -c 'cat > /mnt/etc/pam.d/su' <<-'EOF'
-#%PAM-1.0
-auth		sufficient	pam_rootok.so
-# Uncomment the following line to implicitly trust users in the "wheel" group.
-#auth		sufficient	pam_wheel.so trust use_uid
-# Uncomment the following line to require a user to be in the "wheel" group.
-auth		required	pam_wheel.so use_uid
-auth		required	pam_unix.so
-account		required	pam_unix.so
-session		required	pam_unix.so
-EOF
-
-# Enable IPv6 privacy extensions
-bash -c 'cat > /mnt/etc/NetworkManager/conf.d/ip6-privacy.conf' <<-'EOF'
-[connection]
-ipv6.ip6-privacy=2
-EOF
-
-chmod 600 /mnt/etc/NetworkManager/conf.d/ip6-privacy.conf
 
 # Configuring the system.
 arch-chroot /mnt /bin/bash -e <<EOF
@@ -346,46 +298,7 @@ arch-chroot /mnt /bin/bash -e <<EOF
     # Creating grub config file.
     echo "Creating GRUB config file."
     grub-mkconfig -o /boot/grub/grub.cfg &>/dev/null
-
-    # Adding user with sudo privilege
-    # (now suitable for desktop use on i3, KDE & GNOME)
-    if [ -n "$username" ]; then
-        echo "Adding $username with root privilege."
-        useradd -g users -G wheel,sys,storage,scanner,power,optical,network,lp,audio,video,input -c "$fullname" -m "$username"
-        groupadd -r audit
-        gpasswd -a $username audit
-    fi
 EOF
-
-# Enable AppArmor notifications
-# Must create ~/.config/autostart first
-mkdir -p -m 700 /mnt/home/${username}/.config/autostart/
-bash -c "cat > /mnt/home/${username}/.config/autostart/apparmor-notify.desktop" <<-'EOF'
-[Desktop Entry]
-Type=Application
-Name=AppArmor Notify
-Comment=Receive on screen notifications of AppArmor denials
-TryExec=aa-notify
-Exec=aa-notify -p -s 1 -w 60 -f /var/log/audit/audit.log
-StartupNotify=false
-NoDisplay=true
-EOF
-
-# (we don't create a user group above any more, so this becomes 'users' rather than 'username'.)
-chmod 700 /mnt/home/${username}/.config/autostart/apparmor-notify.desktop
-arch-chroot /mnt chown -R $username:users /home/${username}/.config
-
-# Setting user password.
-[ -n "$username" ] && echo "Setting user password for ${username}." && echo -e "${password}\n${password}" | arch-chroot /mnt passwd "$username" &>/dev/null
-
-# Giving wheel user sudo access.
-sed -i 's/# \(%wheel ALL=(ALL\(:ALL\|\)) ALL\)/\1/g' /mnt/etc/sudoers
-
-# Change audit logging group
-echo "log_group = audit" >> /mnt/etc/audit/auditd.conf
-
-# Enabling audit service.
-systemctl enable auditd --root=/mnt &>/dev/null
 
 # Enabling auto-trimming service.
 systemctl enable fstrim.timer --root=/mnt &>/dev/null
@@ -395,10 +308,6 @@ systemctl enable NetworkManager --root=/mnt &>/dev/null
 
 # Enabling GDM.
 systemctl enable gdm --root=/mnt &>/dev/null
-
-# Enabling AppArmor.
-echo "Enabling AppArmor."
-systemctl enable apparmor --root=/mnt &>/dev/null
 
 # Enabling Reflector timer.
 echo "Enabling Reflector."
