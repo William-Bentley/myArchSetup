@@ -187,7 +187,7 @@ mount -o ssd,noatime,space_cache=v2,autodefrag,compress=zstd:15,discard=async,no
 
 mount -o ssd,noatime,space_cache=v2,autodefrag,compress=zstd:15,discard=async,nodatacow,nodev,nosuid,noexec,subvol=@/var_crash $BTRFS /mnt/var/crash
 mount -o ssd,noatime,space_cache=v2,autodefrag,compress=zstd:15,discard=async,nodatacow,nodev,nosuid,noexec,subvol=@/var_cache $BTRFS /mnt/var/cache
-
+cryptsetup
 # Pamac needs /var/tmp to have exec. Thus I am not adding that flag.
 # I am considering including pacmac-flatpak-gnome AUR package by default, since I am its maintainer.
 mount -o ssd,noatime,space_cache=v2,autodefrag,compress=zstd:15,discard=async,nodatacow,nodev,nosuid,subvol=@/var_tmp $BTRFS /mnt/var/tmp
@@ -201,17 +201,12 @@ mount -o ssd,noatime,space_cache=v2,autodefrag,compress=zstd:15,discard=async,no
 mount -o ssd,noatime,space_cache=v2,autodefrag,compress=zstd:15,discard=async,nodatacow,nodev,nosuid,noexec,subvol=@/var_lib_AccountsService $BTRFS /mnt/var/lib/AccountsService
 
 # The encryption is splitted as we do not want to include it in the backup with snap-pac.
-mount -o ssd,noatime,space_cache=v2,autodefrag,compress=zstd:15,discard=async,nodatacow,nodev,nosuid,noexec,subvol=@/cryptkey $BTRFS /mnt/cryptkey
-
-mkdir -p /mnt/boot/efi
-mount -o nodev,nosuid,noexec "$ESP" /mnt/boot/efi
-
-kernel_selector
+mount -o ssd,noatime,space_cache=v2,acryptsetup
 
 # Pacstrap (setting up a base sytem onto the new root).
 echo "Installing the base system (it may take a while)."
 pacstrap /mnt base ${kernel} ${microcode} linux-firmware
-pacstrap /mnt grub grub-btrfs dosfstools efibootmgr mlocate chrony snapper snap-pac inotify-tools
+pacstrap /mnt grub grub-btrfs dosfstools efibootmgr mlocate chrony snapper snap-pac inotify-tools cryptsetup
 pacstrap /mnt apparmor bash-completion htop btop iwd man-db man-pages mc nano nftables reflector sudo usbguard wget vim
 pacstrap /mnt gnome gnome-extra networkmanager
 
@@ -245,7 +240,7 @@ echo "KEYMAP=$kblayout" > /mnt/etc/vconsole.conf
 echo "Configuring /etc/mkinitcpio for ZSTD compression and LUKS hook."
 sed -i 's,#COMPRESSION="zstd",COMPRESSION="zstd",g' /mnt/etc/mkinitcpio.conf
 sed -i 's,modconf block filesystems keyboard,keyboard modconf block encrypt filesystems,g' /mnt/etc/mkinitcpio.conf
-sed -i 's/^HOOKS=(.*)/HOOKS=(base systemd autodetect keyboard sd-vconsole modconf block sd-encrypt btrfs filesystems)/' /mnt/etc/mkinitcpio.conf
+sed -i 's/^HOOKS=(.*)/HOOKS=(base udev autodetect modconf block keyboard keymap consolefont encrypt btrfs filesystems fsck systemd)/' /mnt/etc/mkinitcpio.conf
 
 # Enabling LUKS in GRUB and setting the UUID of the LUKS container.
 UUID=$(blkid $cryptroot | cut -f2 -d'"')
@@ -256,9 +251,12 @@ sed -i "s|GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"cryptdevice=UUID=${UUID}:cr
 sed -i 's#rootflags=subvol=${rootsubvol}##g' /mnt/etc/grub.d/10_linux
 sed -i 's#rootflags=subvol=${rootsubvol}##g' /mnt/etc/grub.d/20_linux_xen
 
+# Create /etc/crypttab
+echo "cryptroot UUID=${UUID} none luks" > /mnt/etc/crypttab
+
 # Setting GRUB configuration file permissions
 find /mnt/etc/grub.d/ -type f -exec chmod 755 {} \;
-
+cryptsetup
 # Adding keyfile to the initramfs to avoid double password.
 dd bs=512 count=4 if=/dev/random of=/mnt/cryptkey/.root.key iflag=fullblock &>/dev/null
 chmod 000 /mnt/cryptkey/.root.key &>/dev/null
