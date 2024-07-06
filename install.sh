@@ -263,18 +263,6 @@ echo -e "# Booting with BTRFS subvolume\nGRUB_BTRFS_OVERRIDE_BOOT_PARTITION_DETE
 sed -i 's#rootflags=subvol=${rootsubvol}##g' /mnt/etc/grub.d/10_linux
 sed -i 's#rootflags=subvol=${rootsubvol}##g' /mnt/etc/grub.d/20_linux_xen
 
-# Enabling CPU Mitigations
-curl https://raw.githubusercontent.com/Kicksecure/security-misc/master/etc/default/grub.d/40_cpu_mitigations.cfg -o /mnt/etc/grub.d/40_cpu_mitigations.cfg
-
-# Distrusting the CPU
-curl https://raw.githubusercontent.com/Kicksecure/security-misc/master/etc/default/grub.d/40_distrust_cpu.cfg -o /mnt/etc/grub.d/40_distrust_cpu.cfg
-
-# Enabling IOMMU
-curl https://raw.githubusercontent.com/Kicksecure/security-misc/master/etc/default/grub.d/40_enable_iommu.cfg -o /mnt/etc/grub.d/40_enable_iommu.cfg
-
-# Enabling NTS
-curl https://raw.githubusercontent.com/GrapheneOS/infrastructure/main/chrony.conf -o /mnt/etc/chrony.conf
-
 # Setting GRUB configuration file permissions
 find /mnt/etc/grub.d/ -type f -exec chmod 755 {} \;
 
@@ -303,9 +291,6 @@ chmod 600 /mnt/etc/sysctl.d/*
 # Remove nullok from system-auth
 sed -i 's/nullok//g' /mnt/etc/pam.d/system-auth
 
-# Disable coredump
-echo "* hard core 0" >> /mnt/etc/security/limits.conf
-
 # Disable su for non-wheel users
 bash -c 'cat > /mnt/etc/pam.d/su' <<-'EOF'
 #%PAM-1.0
@@ -318,6 +303,7 @@ auth		required	pam_unix.so
 account		required	pam_unix.so
 session		required	pam_unix.so
 EOF
+
 # Enable IPv6 privacy extensions
 bash -c 'cat > /mnt/etc/NetworkManager/conf.d/ip6-privacy.conf' <<-'EOF'
 [connection]
